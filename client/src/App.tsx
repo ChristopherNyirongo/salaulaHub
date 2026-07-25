@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
+import NewArrivals from './components/NewArrivals'
 
 function App() {
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <h1 className="text-emerald-500 text-4xl font-bold">SalaulaHub</h1>
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <Hero />
+      <NewArrivals />
     </div>
   )
 }
