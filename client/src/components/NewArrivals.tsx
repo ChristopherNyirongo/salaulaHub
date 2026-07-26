@@ -39,11 +39,12 @@ function NewArrivals() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {products.map((product) => (
           <ProductCard
-            key={product.id}
-            title={product.title}
-            brand={product.brand}
-            price={product.price}
-            image={product.image}
+          key={product.id}
+          id={product.id}
+          title={product.title}
+          brand={product.brand}
+          price={product.price}
+          image={product.image}
           />
         ))}
       </div>
