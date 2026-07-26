@@ -7,6 +7,7 @@ import PopularShops from './components/PopularShops'
 import Footer from './components/Footer'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import CreateShop from './pages/CreateShop'
 
 function Home() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/create-shop" element={<CreateShop />} />
       </Routes>
       <Footer />
     </div>

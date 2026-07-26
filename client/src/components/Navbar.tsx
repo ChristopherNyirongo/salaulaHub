@@ -20,6 +20,9 @@ function Navbar() {
       <div className="flex items-center gap-4 text-sm">
         {user ? (
           <>
+            {user.role === 'SELLER' && (
+              <Link to="/create-shop" className="hover:text-emerald-400">My Shop</Link>
+            )}
             <span>Hi, {user.firstName}</span>
             <button onClick={logout} className="hover:text-emerald-400">Logout</button>
           </>

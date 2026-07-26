@@ -1,32 +1,31 @@
 import express from 'express'
-import { products } from './data/products'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import prisma from './lib/prisma'
+import { products } from './data/products'
+import { requireAuth, AuthRequest } from './middleware/auth'
 
 const app = express()
 const PORT = 5000
 
 // Middleware: runs on every request, before any route below
 app.use(express.json())
-
 app.use(cors({
   origin: 'http://localhost:5173',
 }))
+
+// ---------- Health & test routes ----------
 
 app.get('/api/v1/health', (req, res) => {
   res.json({ success: true, message: 'SalaulaHub API is running.' })
 })
 
-// New route: echoes back whatever JSON body you send it
 app.post('/api/v1/echo', (req, res) => {
   res.json({ success: true, message: 'Received your data.', data: req.body })
 })
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`)
-})
+// ---------- Products ----------
 
 app.get('/api/v1/products', (req, res) => {
   res.json({
@@ -35,6 +34,7 @@ app.get('/api/v1/products', (req, res) => {
     data: products,
   })
 })
+
 app.get('/api/v1/products/:id', (req, res) => {
   const productId = Number(req.params.id)
   const product = products.find((p) => p.id === productId)
@@ -54,11 +54,12 @@ app.get('/api/v1/products/:id', (req, res) => {
   })
 })
 
+// ---------- Auth ----------
+
 app.post('/api/v1/auth/register', async (req, res) => {
   try {
     const { firstName, lastName, username, email, phoneNumber, password, role } = req.body
 
-    // Check if a user with this email already exists
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
       return res.status(409).json({
@@ -68,10 +69,8 @@ app.post('/api/v1/auth/register', async (req, res) => {
       })
     }
 
-    // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create the user in the database
     const user = await prisma.user.create({
       data: {
         firstName,
@@ -84,7 +83,6 @@ app.post('/api/v1/auth/register', async (req, res) => {
       },
     })
 
-    // Generate a JWT for this new user
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET as string,
@@ -103,7 +101,16 @@ app.post('/api/v1/auth/register', async (req, res) => {
         token,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0] || 'field'
+      return res.status(409).json({
+        success: false,
+        message: `This ${field} is already in use.`,
+        errors: [],
+      })
+    }
+
     console.error(error)
     res.status(500).json({
       success: false,
@@ -117,7 +124,6 @@ app.post('/api/v1/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body
 
-    // Find the user by email
     const user = await prisma.user.findUnique({ where: { email } })
 
     if (!user) {
@@ -128,7 +134,6 @@ app.post('/api/v1/auth/login', async (req, res) => {
       })
     }
 
-    // Compare the typed password against the stored hash
     const passwordMatches = await bcrypt.compare(password, user.password)
 
     if (!passwordMatches) {
@@ -139,7 +144,6 @@ app.post('/api/v1/auth/login', async (req, res) => {
       })
     }
 
-    // Generate a fresh token for this login session
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET as string,
@@ -168,7 +172,7 @@ app.post('/api/v1/auth/login', async (req, res) => {
   }
 })
 
-import { requireAuth, AuthRequest } from './middleware/auth'
+// ---------- Users ----------
 
 app.get('/api/v1/users/me', requireAuth, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } })
@@ -184,4 +188,67 @@ app.get('/api/v1/users/me', requireAuth, async (req: AuthRequest, res) => {
       role: user?.role,
     },
   })
+})
+
+// ---------- Shops ----------
+
+app.post('/api/v1/shops', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    if (req.userRole !== 'SELLER') {
+      return res.status(403).json({
+        success: false,
+        message: "Only sellers can create a shop.",
+        errors: [],
+      })
+    }
+
+    const existingShop = await prisma.shop.findUnique({
+      where: { sellerId: req.userId },
+    })
+    if (existingShop) {
+      return res.status(409).json({
+        success: false,
+        message: "You already have a shop.",
+        errors: [],
+      })
+    }
+
+    const { shopName, description, phone } = req.body
+
+    const shop = await prisma.shop.create({
+      data: {
+        sellerId: req.userId as number,
+        shopName,
+        description,
+        phone,
+      },
+    })
+
+    res.status(201).json({
+      success: true,
+      message: "Shop created successfully.",
+      data: shop,
+    })
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        message: "Shop name is already taken.",
+        errors: [],
+      })
+    }
+
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while creating the shop.",
+      errors: [],
+    })
+  }
+})
+
+// ---------- Start server ----------
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`)
 })
