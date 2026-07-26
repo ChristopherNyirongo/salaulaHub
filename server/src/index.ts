@@ -1,6 +1,9 @@
 import express from 'express'
 import { products } from './data/products'
 import cors from 'cors'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import prisma from './lib/prisma'
 
 const app = express()
 const PORT = 5000
@@ -49,4 +52,63 @@ app.get('/api/v1/products/:id', (req, res) => {
     message: "Product fetched successfully.",
     data: product,
   })
+})
+
+app.post('/api/v1/auth/register', async (req, res) => {
+  try {
+    const { firstName, lastName, username, email, phoneNumber, password, role } = req.body
+
+    // Check if a user with this email already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+        errors: [],
+      })
+    }
+
+    // Hash the password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Create the user in the database
+    const user = await prisma.user.create({
+      data: {
+        firstName,
+        lastName,
+        username,
+        email,
+        phoneNumber,
+        password: hashedPassword,
+        role: role || 'BUYER',
+      },
+    })
+
+    // Generate a JWT for this new user
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '7d' }
+    )
+
+    res.status(201).json({
+      success: true,
+      message: "Account created successfully.",
+      data: {
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          role: user.role,
+        },
+        token,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while creating the account.",
+      errors: [],
+    })
+  }
 })

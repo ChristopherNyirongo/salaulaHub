@@ -5,8 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -28,6 +27,8 @@ model User {
   status       String   @default("active")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  shop         Shop?
 }
 
 enum Role {
@@ -35,4 +36,45 @@ enum Role {
   SELLER
   ADMIN
   SUPER_ADMIN
+}
+
+model Shop {
+  id          Int      @id @default(autoincrement())
+  sellerId    Int      @unique
+  seller      User     @relation(fields: [sellerId], references: [id])
+  shopName    String   @unique
+  description String?
+  logo        String?
+  bannerImage String?
+  phone       String?
+  createdAt   DateTime @default(now())
+
+  products    Product[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  icon     String?
+
+  products Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  shopId      Int
+  shop        Shop     @relation(fields: [shopId], references: [id])
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  title       String
+  description String?
+  brand       String?
+  condition   String
+  gender      String?
+  size        String?
+  colour      String?
+  price       Float
+  status      String   @default("Available")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
