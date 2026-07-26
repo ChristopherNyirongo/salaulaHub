@@ -112,3 +112,76 @@ app.post('/api/v1/auth/register', async (req, res) => {
     })
   }
 })
+
+app.post('/api/v1/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body
+
+    // Find the user by email
+    const user = await prisma.user.findUnique({ where: { email } })
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+        errors: [],
+      })
+    }
+
+    // Compare the typed password against the stored hash
+    const passwordMatches = await bcrypt.compare(password, user.password)
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+        errors: [],
+      })
+    }
+
+    // Generate a fresh token for this login session
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '7d' }
+    )
+
+    res.json({
+      success: true,
+      message: "Login successful.",
+      data: {
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          role: user.role,
+        },
+        token,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while logging in.",
+      errors: [],
+    })
+  }
+})
+
+import { requireAuth, AuthRequest } from './middleware/auth'
+
+app.get('/api/v1/users/me', requireAuth, async (req: AuthRequest, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.userId } })
+
+  res.json({
+    success: true,
+    message: "User fetched successfully.",
+    data: {
+      id: user?.id,
+      firstName: user?.firstName,
+      lastName: user?.lastName,
+      email: user?.email,
+      role: user?.role,
+    },
+  })
+})
