@@ -27,7 +27,15 @@ app.post('/api/v1/echo', (req, res) => {
 
 // ---------- Products ----------
 
-app.get('/api/v1/products', (req, res) => {
+app.get('/api/v1/products', async (req, res) => {
+  const products = await prisma.product.findMany({
+    include: {
+      shop: { select: { shopName: true } },
+      category: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
   res.json({
     success: true,
     message: "Products fetched successfully.",
@@ -35,9 +43,16 @@ app.get('/api/v1/products', (req, res) => {
   })
 })
 
-app.get('/api/v1/products/:id', (req, res) => {
+app.get('/api/v1/products/:id', async (req, res) => {
   const productId = Number(req.params.id)
-  const product = products.find((p) => p.id === productId)
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    include: {
+      shop: { select: { shopName: true, phone: true } },
+      category: { select: { name: true } },
+    },
+  })
 
   if (!product) {
     return res.status(404).json({
