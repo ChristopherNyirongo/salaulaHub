@@ -19,3 +19,8 @@ server/.env
 # Logs
 *.log
 npm-debug.log*
+# Prisma AI assistant skill docs (not project code)
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
