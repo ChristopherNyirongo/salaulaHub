@@ -53,6 +53,62 @@ app.get('/api/v1/products/:id', (req, res) => {
     data: product,
   })
 })
+// ---------- Products (create) ----------
+
+app.post('/api/v1/products', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    if (req.userRole !== 'SELLER') {
+      return res.status(403).json({
+        success: false,
+        message: "Only sellers can upload products.",
+        errors: [],
+      })
+    }
+
+    // Find this seller's shop
+    const shop = await prisma.shop.findUnique({
+      where: { sellerId: req.userId },
+    })
+
+    if (!shop) {
+      return res.status(400).json({
+        success: false,
+        message: "You need to create a shop before uploading products.",
+        errors: [],
+      })
+    }
+
+    const { title, description, brand, condition, gender, size, colour, price, categoryId } = req.body
+
+    const product = await prisma.product.create({
+      data: {
+        shopId: shop.id,
+        categoryId: Number(categoryId),
+        title,
+        description,
+        brand,
+        condition,
+        gender,
+        size,
+        colour,
+        price: Number(price),
+      },
+    })
+
+    res.status(201).json({
+      success: true,
+      message: "Product uploaded successfully.",
+      data: product,
+    })
+  } catch (error: any) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while uploading the product.",
+      errors: [],
+    })
+  }
+})
 
 // ---------- Auth ----------
 
@@ -251,4 +307,14 @@ app.post('/api/v1/shops', requireAuth, async (req: AuthRequest, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`)
+})
+// ---------- Categories ----------
+
+app.get('/api/v1/categories', async (req, res) => {
+  const categories = await prisma.category.findMany()
+  res.json({
+    success: true,
+    message: "Categories fetched successfully.",
+    data: categories,
+  })
 })
