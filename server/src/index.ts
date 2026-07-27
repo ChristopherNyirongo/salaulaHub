@@ -369,3 +369,80 @@ app.get('/api/v1/search', async (req, res) => {
     data: products,
   })
 })
+
+// ---------- Favorites ----------
+
+app.post('/api/v1/favorites/:productId', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const favorite = await prisma.favorite.create({
+      data: {
+        buyerId: req.userId as number,
+        productId: Number(req.params.productId),
+      },
+    })
+
+    res.status(201).json({
+      success: true,
+      message: "Added to favorites.",
+      data: favorite,
+    })
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        message: "Already in your favorites.",
+        errors: [],
+      })
+    }
+
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
+      errors: [],
+    })
+  }
+})
+
+app.delete('/api/v1/favorites/:productId', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    await prisma.favorite.delete({
+      where: {
+        buyerId_productId: {
+          buyerId: req.userId as number,
+          productId: Number(req.params.productId),
+        },
+      },
+    })
+
+    res.json({
+      success: true,
+      message: "Removed from favorites.",
+      data: {},
+    })
+  } catch (error) {
+    res.status(404).json({
+      success: false,
+      message: "Favorite not found.",
+      errors: [],
+    })
+  }
+})
+
+app.get('/api/v1/favorites', requireAuth, async (req: AuthRequest, res) => {
+  const favorites = await prisma.favorite.findMany({
+    where: { buyerId: req.userId },
+    include: {
+      product: {
+        include: { shop: { select: { shopName: true } } },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  res.json({
+    success: true,
+    message: "Favorites fetched successfully.",
+    data: favorites.map((f) => f.product),
+  })
+})

@@ -11,6 +11,7 @@ import CreateShop from './pages/CreateShop'
 import UploadProduct from './pages/UploadProduct'
 import ProductDetail from './pages/ProductDetail'
 import SearchResults from './pages/SearchResults'
+import Favorites from './pages/Favorites'
 function Home() {
   return (
     <>
@@ -34,6 +35,7 @@ function App() {
         <Route path="/upload-product" element={<UploadProduct />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/search" element={<SearchResults />} />
+        <Route path="/favorites" element={<Favorites />} />
       </Routes>
       <Footer />
     </div>
