@@ -18,12 +18,26 @@ type Product = {
   category: { name: string }
 }
 
+type Review = {
+  id: number
+  rating: number
+  comment: string | null
+  buyer: { firstName: string }
+}
+
 function ProductDetail() {
   const { id } = useParams()
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { user, token } = useAuth()
+
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [averageRating, setAverageRating] = useState(0)
+  const [totalReviews, setTotalReviews] = useState(0)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewError, setReviewError] = useState('')
 
   useEffect(() => {
     fetch(`http://localhost:5000/api/v1/products/${id}`)
@@ -41,6 +55,18 @@ function ProductDetail() {
         setLoading(false)
       })
   }, [id])
+
+  useEffect(() => {
+    if (!product) return
+
+    fetch(`http://localhost:5000/api/v1/reviews/${product.shop.sellerId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        setReviews(json.data.reviews)
+        setAverageRating(json.data.averageRating)
+        setTotalReviews(json.data.totalReviews)
+      })
+  }, [product])
 
   if (loading) return <p className="px-6 py-12 text-center">Loading...</p>
   if (error || !product) return <p className="px-6 py-12 text-center text-red-500">{error || 'Product not found.'}</p>
@@ -60,6 +86,33 @@ function ProductDetail() {
     if (json.success) {
       setProduct(json.data)
     }
+  }
+
+  async function submitReview(e: React.FormEvent) {
+    e.preventDefault()
+    setReviewError('')
+
+    const res = await fetch('http://localhost:5000/api/v1/reviews', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        sellerId: product?.shop.sellerId,
+        rating: reviewRating,
+        comment: reviewComment,
+      }),
+    })
+    const json = await res.json()
+
+    if (!json.success) {
+      setReviewError(json.message)
+      return
+    }
+
+    setReviews([json.data, ...reviews])
+    setReviewComment('')
   }
 
   return (
@@ -132,6 +185,55 @@ function ProductDetail() {
           ) : (
             <p className="mt-6 text-sm text-gray-400">Seller contact not available.</p>
           )}
+
+          <div className="mt-8 border-t pt-6">
+            <h2 className="font-heading text-lg font-bold mb-3">
+              Reviews {totalReviews > 0 && `(${averageRating} ★, ${totalReviews} review${totalReviews !== 1 ? 's' : ''})`}
+            </h2>
+
+            {reviews.length === 0 ? (
+              <p className="text-sm text-gray-500 mb-4">No reviews yet.</p>
+            ) : (
+              <div className="space-y-3 mb-4">
+                {reviews.map((r) => (
+                  <div key={r.id} className="text-sm border-b pb-3">
+                    <p className="font-medium">{r.buyer.firstName} — {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</p>
+                    {r.comment && <p className="text-gray-600 mt-1">{r.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {user && user.id !== product.shop.sellerId && (
+              <form onSubmit={submitReview} className="mt-4">
+                {reviewError && <p className="text-red-500 text-sm mb-2">{reviewError}</p>}
+
+                <select
+                  value={reviewRating}
+                  onChange={(e) => setReviewRating(Number(e.target.value))}
+                  className="border rounded-lg px-3 py-2 text-sm mb-2"
+                >
+                  <option value={5}>5 ★ — Excellent</option>
+                  <option value={4}>4 ★ — Good</option>
+                  <option value={3}>3 ★ — Okay</option>
+                  <option value={2}>2 ★ — Poor</option>
+                  <option value={1}>1 ★ — Bad</option>
+                </select>
+
+                <textarea
+                  placeholder="Share your experience with this seller"
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm mb-2"
+                  rows={2}
+                />
+
+                <button type="submit" className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  Submit Review
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </div>

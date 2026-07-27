@@ -516,3 +516,73 @@ app.get('/api/v1/favorites', requireAuth, async (req: AuthRequest, res) => {
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`)
 })
+// ---------- Reviews ----------
+
+app.post('/api/v1/reviews', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { sellerId, rating, comment } = req.body
+
+    if (Number(sellerId) === req.userId) {
+      return res.status(400).json({
+        success: false,
+        message: "You can't review yourself.",
+        errors: [],
+      })
+    }
+
+    const review = await prisma.review.create({
+      data: {
+        buyerId: req.userId as number,
+        sellerId: Number(sellerId),
+        rating: Number(rating),
+        comment,
+      },
+    })
+
+    res.status(201).json({
+      success: true,
+      message: "Review submitted successfully.",
+      data: review,
+    })
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        message: "You've already reviewed this seller.",
+        errors: [],
+      })
+    }
+
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while submitting the review.",
+      errors: [],
+    })
+  }
+})
+
+app.get('/api/v1/reviews/:sellerId', async (req, res) => {
+  const sellerId = Number(req.params.sellerId)
+
+  const reviews = await prisma.review.findMany({
+    where: { sellerId },
+    include: { buyer: { select: { firstName: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const average =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : 0
+
+  res.json({
+    success: true,
+    message: "Reviews fetched successfully.",
+    data: {
+      reviews,
+      averageRating: Math.round(average * 10) / 10,
+      totalReviews: reviews.length,
+    },
+  })
+})

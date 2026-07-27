@@ -28,10 +28,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  shop         Shop?
-  favorites Favorite[]
+  shop            Shop?
+  favorites       Favorite[]
+  reviewsWritten  Review[]  @relation("BuyerReviews")
+  reviewsReceived Review[]  @relation("SellerReviews")
 }
-
 enum Role {
   BUYER
   SELLER
@@ -90,4 +91,16 @@ model Favorite {
   createdAt DateTime @default(now())
 
   @@unique([buyerId, productId])
+}
+model Review {
+  id        Int      @id @default(autoincrement())
+  buyerId   Int
+  buyer     User     @relation("BuyerReviews", fields: [buyerId], references: [id])
+  sellerId  Int
+  seller    User     @relation("SellerReviews", fields: [sellerId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([buyerId, sellerId])
 }
