@@ -3,13 +3,11 @@ import cors from 'cors'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import prisma from './lib/prisma'
-import { products } from './data/products'
 import { requireAuth, AuthRequest } from './middleware/auth'
 
 const app = express()
 const PORT = 5000
 
-// Middleware: runs on every request, before any route below
 app.use(express.json())
 app.use(cors({
   origin: 'http://localhost:5173',
@@ -49,7 +47,7 @@ app.get('/api/v1/products/:id', async (req, res) => {
   const product = await prisma.product.findUnique({
     where: { id: productId },
     include: {
-      shop: { select: { shopName: true, phone: true } },
+      shop: { select: { shopName: true, phone: true, sellerId: true } },
       category: { select: { name: true } },
     },
   })
@@ -68,7 +66,6 @@ app.get('/api/v1/products/:id', async (req, res) => {
     data: product,
   })
 })
-// ---------- Products (create) ----------
 
 app.post('/api/v1/products', requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -80,7 +77,6 @@ app.post('/api/v1/products', requireAuth, async (req: AuthRequest, res) => {
       })
     }
 
-    // Find this seller's shop
     const shop = await prisma.shop.findUnique({
       where: { sellerId: req.userId },
     })
@@ -95,21 +91,21 @@ app.post('/api/v1/products', requireAuth, async (req: AuthRequest, res) => {
 
     const { title, description, brand, condition, gender, size, colour, price, categoryId, image } = req.body
 
-const product = await prisma.product.create({
-  data: {
-    shopId: shop.id,
-    categoryId: Number(categoryId),
-    title,
-    description,
-    brand,
-    condition,
-    gender,
-    size,
-    colour,
-    price: Number(price),
-    image,
-  },
-})
+    const product = await prisma.product.create({
+      data: {
+        shopId: shop.id,
+        categoryId: Number(categoryId),
+        title,
+        description,
+        brand,
+        condition,
+        gender,
+        size,
+        colour,
+        price: Number(price),
+        image,
+      },
+    })
 
     res.status(201).json({
       success: true,
@@ -124,6 +120,110 @@ const product = await prisma.product.create({
       errors: [],
     })
   }
+})
+
+// ---------- Product status ----------
+
+app.patch('/api/v1/products/:id/sold', requireAuth, async (req: AuthRequest, res) => {
+  await updateProductStatus(req, res, 'Sold')
+})
+
+app.patch('/api/v1/products/:id/reserve', requireAuth, async (req: AuthRequest, res) => {
+  await updateProductStatus(req, res, 'Reserved')
+})
+
+async function updateProductStatus(req: AuthRequest, res: any, newStatus: string) {
+  try {
+    const productId = Number(req.params.id)
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { shop: true },
+    })
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+        errors: [],
+      })
+    }
+
+    if (product.shop.sellerId !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to update this product.",
+        errors: [],
+      })
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: { status: newStatus },
+    })
+
+    res.json({
+      success: true,
+      message: `Product marked as ${newStatus}.`,
+      data: updated,
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
+      errors: [],
+    })
+  }
+}
+
+// ---------- Categories ----------
+
+app.get('/api/v1/categories', async (req, res) => {
+  const categories = await prisma.category.findMany()
+  res.json({
+    success: true,
+    message: "Categories fetched successfully.",
+    data: categories,
+  })
+})
+
+// ---------- Search ----------
+
+app.get('/api/v1/search', async (req, res) => {
+  const { q, category, minPrice, maxPrice, size, gender } = req.query
+
+  const products = await prisma.product.findMany({
+    where: {
+      AND: [
+        q
+          ? {
+              OR: [
+                { title: { contains: String(q), mode: 'insensitive' } },
+                { brand: { contains: String(q), mode: 'insensitive' } },
+                { description: { contains: String(q), mode: 'insensitive' } },
+              ],
+            }
+          : {},
+        category ? { category: { name: { equals: String(category), mode: 'insensitive' } } } : {},
+        size ? { size: { equals: String(size), mode: 'insensitive' } } : {},
+        gender ? { gender: { equals: String(gender), mode: 'insensitive' } } : {},
+        minPrice ? { price: { gte: Number(minPrice) } } : {},
+        maxPrice ? { price: { lte: Number(maxPrice) } } : {},
+      ],
+    },
+    include: {
+      shop: { select: { shopName: true } },
+      category: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  res.json({
+    success: true,
+    message: "Search results fetched successfully.",
+    data: products,
+  })
 })
 
 // ---------- Auth ----------
@@ -319,54 +419,18 @@ app.post('/api/v1/shops', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
-// ---------- Start server ----------
-
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`)
-})
-// ---------- Categories ----------
-
-app.get('/api/v1/categories', async (req, res) => {
-  const categories = await prisma.category.findMany()
-  res.json({
-    success: true,
-    message: "Categories fetched successfully.",
-    data: categories,
-  })
-})
-app.get('/api/v1/search', async (req, res) => {
-  const { q, category, minPrice, maxPrice, size, gender } = req.query
-
-  const products = await prisma.product.findMany({
-    where: {
-      AND: [
-        q
-          ? {
-              OR: [
-                { title: { contains: String(q), mode: 'insensitive' } },
-                { brand: { contains: String(q), mode: 'insensitive' } },
-                { description: { contains: String(q), mode: 'insensitive' } },
-              ],
-            }
-          : {},
-        category ? { category: { name: { equals: String(category), mode: 'insensitive' } } } : {},
-        size ? { size: { equals: String(size), mode: 'insensitive' } } : {},
-        gender ? { gender: { equals: String(gender), mode: 'insensitive' } } : {},
-        minPrice ? { price: { gte: Number(minPrice) } } : {},
-        maxPrice ? { price: { lte: Number(maxPrice) } } : {},
-      ],
-    },
+app.get('/api/v1/shops', async (req, res) => {
+  const shops = await prisma.shop.findMany({
     include: {
-      shop: { select: { shopName: true } },
-      category: { select: { name: true } },
+      _count: { select: { products: true } },
     },
     orderBy: { createdAt: 'desc' },
   })
 
   res.json({
     success: true,
-    message: "Search results fetched successfully.",
-    data: products,
+    message: "Shops fetched successfully.",
+    data: shops,
   })
 })
 
@@ -446,17 +510,9 @@ app.get('/api/v1/favorites', requireAuth, async (req: AuthRequest, res) => {
     data: favorites.map((f) => f.product),
   })
 })
-app.get('/api/v1/shops', async (req, res) => {
-  const shops = await prisma.shop.findMany({
-    include: {
-      _count: { select: { products: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
 
-  res.json({
-    success: true,
-    message: "Shops fetched successfully.",
-    data: shops,
-  })
+// ---------- Start server ----------
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`)
 })
