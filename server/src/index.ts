@@ -446,3 +446,17 @@ app.get('/api/v1/favorites', requireAuth, async (req: AuthRequest, res) => {
     data: favorites.map((f) => f.product),
   })
 })
+app.get('/api/v1/shops', async (req, res) => {
+  const shops = await prisma.shop.findMany({
+    include: {
+      _count: { select: { products: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  res.json({
+    success: true,
+    message: "Shops fetched successfully.",
+    data: shops,
+  })
+})
