@@ -10,6 +10,7 @@ import Register from './pages/Register'
 import CreateShop from './pages/CreateShop'
 import UploadProduct from './pages/UploadProduct'
 import ProductDetail from './pages/ProductDetail'
+import SearchResults from './pages/SearchResults'
 function Home() {
   return (
     <>
@@ -32,6 +33,7 @@ function App() {
         <Route path="/create-shop" element={<CreateShop />} />
         <Route path="/upload-product" element={<UploadProduct />} />
         <Route path="/products/:id" element={<ProductDetail />} />
+        <Route path="/search" element={<SearchResults />} />
       </Routes>
       <Footer />
     </div>

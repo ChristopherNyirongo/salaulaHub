@@ -334,3 +334,38 @@ app.get('/api/v1/categories', async (req, res) => {
     data: categories,
   })
 })
+app.get('/api/v1/search', async (req, res) => {
+  const { q, category, minPrice, maxPrice, size, gender } = req.query
+
+  const products = await prisma.product.findMany({
+    where: {
+      AND: [
+        q
+          ? {
+              OR: [
+                { title: { contains: String(q), mode: 'insensitive' } },
+                { brand: { contains: String(q), mode: 'insensitive' } },
+                { description: { contains: String(q), mode: 'insensitive' } },
+              ],
+            }
+          : {},
+        category ? { category: { name: { equals: String(category), mode: 'insensitive' } } } : {},
+        size ? { size: { equals: String(size), mode: 'insensitive' } } : {},
+        gender ? { gender: { equals: String(gender), mode: 'insensitive' } } : {},
+        minPrice ? { price: { gte: Number(minPrice) } } : {},
+        maxPrice ? { price: { lte: Number(maxPrice) } } : {},
+      ],
+    },
+    include: {
+      shop: { select: { shopName: true } },
+      category: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  res.json({
+    success: true,
+    message: "Search results fetched successfully.",
+    data: products,
+  })
+})
