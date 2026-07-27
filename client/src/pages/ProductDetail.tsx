@@ -12,6 +12,7 @@ type Product = {
   colour: string | null
   price: number
   status: string
+  image: string | null
   shop: { shopName: string; phone: string | null }
   category: { name: string }
 }
@@ -54,9 +55,17 @@ function ProductDetail() {
       </Link>
 
       <div className="grid md:grid-cols-2 gap-10">
-        <div className="bg-gray-100 rounded-2xl h-96 flex items-center justify-center text-gray-400">
-          No image yet
-        </div>
+        <div className="bg-gray-100 rounded-2xl h-96 flex items-center justify-center text-gray-400 overflow-hidden">
+      {product.image ? (
+        <img
+          src={product.image}
+          alt={product.title}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <span>No image available</span>
+      )}
+    </div>
 
         <div>
           <p className="text-sm text-gray-500">{product.brand} &middot; {product.category.name}</p>

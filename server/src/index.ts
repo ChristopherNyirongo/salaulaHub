@@ -93,22 +93,23 @@ app.post('/api/v1/products', requireAuth, async (req: AuthRequest, res) => {
       })
     }
 
-    const { title, description, brand, condition, gender, size, colour, price, categoryId } = req.body
+    const { title, description, brand, condition, gender, size, colour, price, categoryId, image } = req.body
 
-    const product = await prisma.product.create({
-      data: {
-        shopId: shop.id,
-        categoryId: Number(categoryId),
-        title,
-        description,
-        brand,
-        condition,
-        gender,
-        size,
-        colour,
-        price: Number(price),
-      },
-    })
+const product = await prisma.product.create({
+  data: {
+    shopId: shop.id,
+    categoryId: Number(categoryId),
+    title,
+    description,
+    brand,
+    condition,
+    gender,
+    size,
+    colour,
+    price: Number(price),
+    image,
+  },
+})
 
     res.status(201).json({
       success: true,
