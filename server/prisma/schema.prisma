@@ -49,6 +49,9 @@ model Shop {
   logo        String?
   bannerImage String?
   phone       String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
   createdAt   DateTime @default(now())
 
   products    Product[]

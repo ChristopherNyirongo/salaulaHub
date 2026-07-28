@@ -22,7 +22,7 @@ function Navbar() {
           <>
             {user.role === 'SELLER' && (
               <>
-                <Link to="/create-shop" className="hover:text-emerald-400">My Shop</Link>
+                <Link to="/edit-shop" className="hover:text-emerald-400">My Shop</Link>
                 <Link to="/upload-product" className="hover:text-emerald-400">Upload Product</Link>
               </>
             )}

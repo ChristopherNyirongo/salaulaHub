@@ -47,7 +47,16 @@ app.get('/api/v1/products/:id', async (req, res) => {
   const product = await prisma.product.findUnique({
     where: { id: productId },
     include: {
-      shop: { select: { shopName: true, phone: true, sellerId: true } },
+      shop: {
+        select: {
+          shopName: true,
+          phone: true,
+          sellerId: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+        },
+      },
       category: { select: { name: true } },
     },
   })
@@ -385,7 +394,7 @@ app.post('/api/v1/shops', requireAuth, async (req: AuthRequest, res) => {
       })
     }
 
-    const { shopName, description, phone } = req.body
+    const { shopName, description, phone, address, latitude, longitude } = req.body
 
     const shop = await prisma.shop.create({
       data: {
@@ -393,6 +402,9 @@ app.post('/api/v1/shops', requireAuth, async (req: AuthRequest, res) => {
         shopName,
         description,
         phone,
+        address,
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
       },
     })
 
@@ -414,6 +426,85 @@ app.post('/api/v1/shops', requireAuth, async (req: AuthRequest, res) => {
     res.status(500).json({
       success: false,
       message: "Something went wrong while creating the shop.",
+      errors: [],
+    })
+  }
+})
+
+app.get('/api/v1/shops/me', requireAuth, async (req: AuthRequest, res) => {
+  const shop = await prisma.shop.findUnique({
+    where: { sellerId: req.userId },
+  })
+
+  if (!shop) {
+    return res.status(404).json({
+      success: false,
+      message: "You don't have a shop yet.",
+      errors: [],
+    })
+  }
+
+  res.json({
+    success: true,
+    message: "Shop fetched successfully.",
+    data: shop,
+  })
+})
+
+app.put('/api/v1/shops/:shopId', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const shopId = Number(req.params.shopId)
+
+    const shop = await prisma.shop.findUnique({ where: { id: shopId } })
+
+    if (!shop) {
+      return res.status(404).json({
+        success: false,
+        message: "Shop not found.",
+        errors: [],
+      })
+    }
+
+    if (shop.sellerId !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to edit this shop.",
+        errors: [],
+      })
+    }
+
+    const { shopName, description, phone, address, latitude, longitude } = req.body
+
+    const updated = await prisma.shop.update({
+      where: { id: shopId },
+      data: {
+        shopName,
+        description,
+        phone,
+        address,
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
+      },
+    })
+
+    res.json({
+      success: true,
+      message: "Shop updated successfully.",
+      data: updated,
+    })
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        message: "Shop name is already taken.",
+        errors: [],
+      })
+    }
+
+    console.error(error)
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while updating the shop.",
       errors: [],
     })
   }
@@ -511,11 +602,6 @@ app.get('/api/v1/favorites', requireAuth, async (req: AuthRequest, res) => {
   })
 })
 
-// ---------- Start server ----------
-
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`)
-})
 // ---------- Reviews ----------
 
 app.post('/api/v1/reviews', requireAuth, async (req: AuthRequest, res) => {
@@ -585,4 +671,10 @@ app.get('/api/v1/reviews/:sellerId', async (req, res) => {
       totalReviews: reviews.length,
     },
   })
+})
+
+// ---------- Start server ----------
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`)
 })
